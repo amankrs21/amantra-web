@@ -6,6 +6,7 @@ import { encodeKey } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/password-generator';
 import { useEncryptionKey } from '../../hooks/useEncryptionKey';
 import Modal from '../ui/Modal';
+import { getApiErrorMessage } from '../../utils/api-error';
 
 interface Props {
   open: boolean;
@@ -22,19 +23,58 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
   const [category, setCategory] = useState('other');
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { pin, setPin } = useEncryptionKey();
+  const { pin } = useEncryptionKey();
+
+  const decodeBase64 = (value: string) => {
+    try {
+      const binary = atob(value);
+      try {
+        const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+      } catch {
+        return binary;
+      }
+    } catch {
+      return value;
+    }
+  };
 
   useEffect(() => {
-    if (editItem) {
+    if (!open) return;
+    let active = true;
+    const loadEditData = async () => {
+      if (!editItem) {
+        setTitle('');
+        setUsername('');
+        setPassword('');
+        setNotes('');
+        setCategory('other');
+        return;
+      }
+
       setTitle(editItem.title);
       setUsername(editItem.username);
       setCategory(editItem.category);
       setPassword('');
       setNotes('');
-    } else {
-      setTitle(''); setUsername(''); setPassword(''); setNotes(''); setCategory('other');
-    }
-  }, [editItem, open]);
+
+      if (!pin) return;
+
+      try {
+        const key = encodeKey(pin);
+        const res = await vaultAPI.decrypt(editItem._id, key);
+        if (!active) return;
+        const passwordValue = decodeBase64(res.data?.password || '');
+        setPassword(passwordValue);
+        setNotes(res.data?.notes || '');
+      } catch {
+        if (active) toast.error('Failed to load password');
+      }
+    };
+
+    loadEditData();
+    return () => { active = false; };
+  }, [editItem, open, pin]);
 
   const strength = getPasswordStrength(password);
 
@@ -55,7 +95,7 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
       onSaved();
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(getApiErrorMessage(err, 'Failed to save'));
     } finally { setSaving(false); }
   };
 
@@ -73,9 +113,15 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
         <div>
           <label className="text-sm font-medium mb-1 block">Password *</label>
           <div className="relative">
-            <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input pr-10" placeholder="••••••••" />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-icon p-1">
-              {showPassword ? '🙈' : '👁'}
+            <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input pr-12" placeholder="••••••••" />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-md"
+              style={{ color: 'var(--text-secondary)', background: 'transparent' }}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              <span className="text-base leading-none">{showPassword ? '🙈' : '🙉'}</span>
             </button>
           </div>
           {password && (
@@ -103,10 +149,6 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
         <div>
           <label className="text-sm font-medium mb-1 block">Notes</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} className="input" rows={3} placeholder="Optional notes..." />
-        </div>
-        <div>
-          <label className="text-sm font-medium mb-1 block">Encryption PIN *</label>
-          <input type="password" value={pin} onChange={e => setPin(e.target.value)} className="input" placeholder="Your encryption PIN" />
         </div>
         <div className="flex gap-3 justify-end pt-2">
           <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
