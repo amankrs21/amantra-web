@@ -4,12 +4,14 @@ import { Mail, Lock, KeyRound, ArrowRight, ArrowLeft, CheckCircle } from 'lucide
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { Link, useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../../utils/api-error';
 
 export default function ForgotPasswordForm() {
   const [step, setStep] = useState<'email' | 'reset'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const { forgotPassword, resetPassword, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -20,8 +22,7 @@ export default function ForgotPasswordForm() {
       toast.success('OTP sent to your email');
       setStep('reset');
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to send OTP';
-      toast.error(msg);
+      toast.error(getApiErrorMessage(err, 'Failed to send OTP'));
     }
   };
 
@@ -32,8 +33,7 @@ export default function ForgotPasswordForm() {
       toast.success('Password reset! Please login.');
       navigate('/login');
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Reset failed';
-      toast.error(msg);
+      toast.error(getApiErrorMessage(err, 'Reset failed'));
     }
   };
 
@@ -101,8 +101,13 @@ export default function ForgotPasswordForm() {
                 <div className="absolute left-3 top-0 bottom-0 flex items-center pointer-events-none">
                   <Lock size={16} style={{ color: 'var(--text-muted)' }} />
                 </div>
-                <input type="password" placeholder="Min 8 characters" value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)} className="input" style={{ paddingLeft: "2.5rem" }} required minLength={8} />
+                <input type={showPw ? 'text' : 'password'} placeholder="Min 8 characters" value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)} className="input" style={{ paddingLeft: "2.5rem", paddingRight: "2.5rem" }} required minLength={8} />
+                <button type="button" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide password' : 'Show password'}
+                  className="absolute right-0 top-0 bottom-0 flex items-center px-3"
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <span className="text-base leading-none">{showPw ? '🙈' : '🫣'}</span>
+                </button>
               </div>
             </div>
           </>
