@@ -1,4 +1,4 @@
-name: CI/CD
+name: amantra-web CI/CD
 
 on:
   push:
