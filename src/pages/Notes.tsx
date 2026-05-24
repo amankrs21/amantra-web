@@ -8,6 +8,7 @@ import NoteCard from '../components/notes/NoteCard';
 import Modal from '../components/ui/Modal';
 import { encodeKey } from '../utils/crypto';
 import { useEncryptionKey } from '../hooks/useEncryptionKey';
+import { getApiErrorMessage } from '../utils/api-error';
 
 interface NoteItem {
   _id: string;
@@ -31,6 +32,7 @@ export default function Notes() {
   const [formCategory, setFormCategory] = useState('personal');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<NoteItem | null>(null);
+  const [showPinValue, setShowPinValue] = useState(false);
   const { pin, setPin, verifyPin } = useEncryptionKey();
 
   const fetchItems = useCallback(async () => {
@@ -105,7 +107,7 @@ export default function Notes() {
       fetchItems();
       setShowForm(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(getApiErrorMessage(err, 'Failed to save'));
     } finally { setSaving(false); }
   };
 
@@ -204,7 +206,14 @@ export default function Notes() {
           </div>
           <div>
             <label className="text-sm font-medium mb-1 block">Encryption PIN *</label>
-            <input type="password" value={pin} onChange={e => setPin(e.target.value)} className="input" placeholder="PIN" />
+            <div className="relative">
+              <input type={showPinValue ? 'text' : 'password'} value={pin} onChange={e => setPin(e.target.value)} className="input pr-10" placeholder="PIN" />
+              <button type="button" onClick={() => setShowPinValue(!showPinValue)} aria-label={showPinValue ? 'Hide PIN' : 'Show PIN'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
+                style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
+                <span className="text-base leading-none">{showPinValue ? '🙈' : '🙉'}</span>
+              </button>
+            </div>
           </div>
           <div className="flex gap-3 justify-end pt-2">
             <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">Cancel</button>

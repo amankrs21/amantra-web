@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Shield, Palette, AlertTriangle, Save, Check, Eye, EyeOff, Trash2, Moon, Sun, Monitor } from 'lucide-react';
+import { User, Shield, Palette, AlertTriangle, Save, Check, Trash2, Moon, Sun, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { userAPI, pinAPI } from '../services/api';
 import { encodeKey, PIN_STORAGE_KEY } from '../utils/crypto';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../utils/api-error';
 
 export default function Settings() {
   const { user, logout } = useAuth();
@@ -28,8 +29,10 @@ export default function Settings() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [pinSaving, setPinSaving] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [avatarOk, setAvatarOk] = useState(true);
 
   useEffect(() => {
     userAPI.fetch().then(res => {
@@ -60,7 +63,7 @@ export default function Settings() {
       await userAPI.changePassword({ oldPassword, newPassword });
       setOldPassword(''); setNewPassword(''); setConfirmPassword('');
       toast.success('Password changed');
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
+    } catch (err: any) { toast.error(getApiErrorMessage(err, 'Failed')); }
     finally { setPasswordSaving(false); }
   };
 
@@ -117,8 +120,17 @@ export default function Settings() {
         {activeTab === 'profile' && (
           <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card p-6 space-y-5">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
-                {name.charAt(0).toUpperCase()}
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
+                {user?.avatarUrl && avatarOk ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user?.name || 'User'}
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarOk(false)}
+                  />
+                ) : (
+                  <span>{name.charAt(0).toUpperCase()}</span>
+                )}
               </div>
               <div>
                 <h3 className="text-lg font-semibold">{name}</h3>
@@ -174,8 +186,8 @@ export default function Settings() {
                 <label className="text-sm font-medium mb-1 block">Current Password</label>
                 <div className="relative">
                   <input type={showPasswords ? 'text' : 'password'} value={oldPassword} onChange={e => setOldPassword(e.target.value)} className="input pr-10" />
-                  <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-icon p-1">
-                    {showPasswords ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-icon p-1" aria-label={showPasswords ? 'Hide passwords' : 'Show passwords'}>
+                    <span className="text-base leading-none">{showPasswords ? '🙈' : '🙉'}</span>
                   </button>
                 </div>
               </div>
@@ -196,7 +208,14 @@ export default function Settings() {
             <div className="card p-6 space-y-4">
               <h3 className="text-lg font-semibold">Encryption PIN</h3>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Set or update your encryption PIN for vault and notes.</p>
-              <input type="password" value={newPin} onChange={e => setNewPin(e.target.value)} className="input" placeholder="New PIN (min 4 chars)" />
+              <div className="relative">
+                <input type={showNewPin ? 'text' : 'password'} value={newPin} onChange={e => setNewPin(e.target.value)} className="input pr-10" placeholder="New PIN (min 4 chars)" />
+                <button type="button" onClick={() => setShowNewPin(!showNewPin)} aria-label={showNewPin ? 'Hide PIN' : 'Show PIN'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
+                  style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
+                  <span className="text-base leading-none">{showNewPin ? '🙈' : '🙉'}</span>
+                </button>
+              </div>
               <button onClick={setEncryptionPin} disabled={pinSaving} className="btn btn-primary">
                 {pinSaving ? <span className="spinner" /> : 'Set PIN'}
               </button>

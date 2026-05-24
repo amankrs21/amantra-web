@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Grid3X3, List, Lock, Trash2, KeyRound } from 'lucide-react';
+import { Plus, Search, Grid3X3, List, Lock, Trash2, KeyRound, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { vaultAPI } from '../services/api';
 import { useEncryptionKey } from '../hooks/useEncryptionKey';
@@ -44,7 +44,9 @@ export default function Vault() {
   const [sortBy, setSortBy] = useState<'updated' | 'title' | 'username'>('updated');
   const [confirmDelete, setConfirmDelete] = useState<VaultItem | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const { pin, setPin, verifyPin } = useEncryptionKey();
   const suggestionListId = 'vault-search-suggestions';
 
@@ -91,6 +93,15 @@ export default function Vault() {
     if (typeof localStorage === 'undefined') return;
     localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
   }, [pageSize]);
+
+  useEffect(() => {
+    if (!optionsOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) setOptionsOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [optionsOpen]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -196,28 +207,58 @@ export default function Vault() {
           </datalist>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            aria-label="Sort vault"
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as 'updated' | 'title' | 'username')}
-            className="input text-sm py-2"
+          <div ref={optionsRef} className="relative">
+            <button
+              onClick={() => setOptionsOpen(v => !v)}
+              className="btn btn-ghost btn-icon"
+              title="View options"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <SlidersHorizontal size={16} />
+            </button>
+            <AnimatePresence>
+              {optionsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  className="absolute right-0 top-full mt-1 w-56 card-flat p-3 z-30 shadow-lg"
+                  style={{ background: 'var(--bg-surface)' }}
+                >
+                  <div className="text-[11px] uppercase tracking-[0.3em] mb-2" style={{ color: 'var(--text-muted)' }}>Sort</div>
+                  <select
+                    aria-label="Sort vault"
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as 'updated' | 'title' | 'username')}
+                    className="input text-sm py-2 mb-3"
+                  >
+                    <option value="updated">Recently Updated</option>
+                    <option value="title">Title (A-Z)</option>
+                    <option value="username">Username (A-Z)</option>
+                  </select>
+                  <div className="text-[11px] uppercase tracking-[0.3em] mb-2" style={{ color: 'var(--text-muted)' }}>Page size</div>
+                  <select
+                    aria-label="Items per page"
+                    value={pageSize}
+                    onChange={e => setPageSize(Number(e.target.value))}
+                    className="input text-sm py-2"
+                  >
+                    {PAGE_SIZES.map(size => (
+                      <option key={size} value={size}>{size} / page</option>
+                    ))}
+                  </select>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <button
+            onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
+            className="btn btn-ghost btn-icon"
+            style={{ color: 'var(--text-primary)' }}
+            title={view === 'grid' ? 'Switch to list view' : 'Switch to grid view'}
           >
-            <option value="updated">Recently Updated</option>
-            <option value="title">Title (A-Z)</option>
-            <option value="username">Username (A-Z)</option>
-          </select>
-          <select
-            aria-label="Items per page"
-            value={pageSize}
-            onChange={e => setPageSize(Number(e.target.value))}
-            className="input text-sm py-2"
-          >
-            {PAGE_SIZES.map(size => (
-              <option key={size} value={size}>{size} / page</option>
-            ))}
-          </select>
-          <button onClick={() => setView('grid')} className={`btn btn-ghost btn-icon ${view === 'grid' ? 'bg-[var(--bg-surface-light)]' : ''}`}><Grid3X3 size={16} /></button>
-          <button onClick={() => setView('list')} className={`btn btn-ghost btn-icon ${view === 'list' ? 'bg-[var(--bg-surface-light)]' : ''}`}><List size={16} /></button>
+            {view === 'grid' ? <List size={16} /> : <Grid3X3 size={16} />}
+          </button>
           <button onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); }} className={`btn text-sm ${bulkMode ? 'btn-danger' : 'btn-secondary'}`}>
             {bulkMode ? 'Cancel' : 'Select'}
           </button>
