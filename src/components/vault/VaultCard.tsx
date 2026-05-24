@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Eye, EyeOff, Edit, Trash2, Check, Lock, MoreVertical } from 'lucide-react';
+import { Copy, Eye, Edit, Trash2, Check, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { vaultAPI } from '../../services/api';
 import { getCategoryLabel, vaultCategories } from '../../utils/categories';
@@ -59,17 +59,7 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [showPin, setShowPin] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
+  const [showPinValue, setShowPinValue] = useState(false);
 
   const handleDecrypt = async () => {
     if (decrypted) { setDecrypted(null); setShowPassword(false); return; }
@@ -109,10 +99,18 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
     </button>
   );
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (!bulkMode) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('a')) return;
+    onToggleSelect();
+  };
+
   return (
     <motion.div
       layout
-      className={`card-interactive p-0 overflow-hidden category-${item.category} ${selected ? 'ring-2 ring-[var(--accent-purple)]' : ''}`}
+      onClick={handleCardClick}
+      className={`card-interactive relative p-0 overflow-hidden category-${item.category} ${selected ? 'ring-2 ring-[var(--accent-purple)]' : ''}`}
     >
       {bulkMode && (
         <div className="absolute top-3 left-3 z-10">
@@ -139,8 +137,15 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
           {showPin && !decrypted && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
               <div className="flex gap-2 mb-3">
-                <input type="password" placeholder="Enter PIN" value={pin} onChange={e => setPin(e.target.value)} className="input text-sm flex-1"
-                  onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }} />
+                <div className="relative flex-1">
+                  <input type={showPinValue ? 'text' : 'password'} placeholder="Enter PIN" value={pin} onChange={e => setPin(e.target.value)} className="input text-sm pr-10"
+                    onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }} />
+                  <button type="button" onClick={() => setShowPinValue(!showPinValue)} aria-label={showPinValue ? 'Hide PIN' : 'Show PIN'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
+                    style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
+                    <span className="text-base leading-none">{showPinValue ? '🙈' : '🙉'}</span>
+                  </button>
+                </div>
                 <button onClick={handlePinSubmit} disabled={loading} className="btn btn-primary text-sm px-3">
                   {loading ? <span className="spinner" /> : 'Unlock'}
                 </button>
@@ -162,8 +167,8 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Password</span>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setShowPassword(!showPassword)} className="btn btn-ghost btn-icon p-1">
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    <button onClick={() => setShowPassword(!showPassword)} className="btn btn-ghost btn-icon p-1" title={showPassword ? 'Hide password' : 'Show password'}>
+                      <span className="text-base leading-none">{showPassword ? '🙈' : '🙉'}</span>
                     </button>
                     <CopyBtn text={decrypted.password} label="password" />
                   </div>
@@ -188,29 +193,10 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
               {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : decrypted ? <Lock size={14} /> : <Eye size={14} />}
             </button>
             {!bulkMode && (
-              <div ref={menuRef} className="relative">
-                <button onClick={() => setMenuOpen((v) => !v)} className="btn btn-ghost btn-icon p-1.5" title="More">
-                  <MoreVertical size={14} />
-                </button>
-                <AnimatePresence>
-                  {menuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                      className="absolute right-0 top-full mt-1 w-28 card-flat p-1 z-20 shadow-lg"
-                      style={{ background: 'var(--bg-surface)' }}
-                    >
-                      <button onClick={() => { setMenuOpen(false); onEdit(); }} className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm hover:bg-[var(--bg-surface-light)] transition-colors">
-                        <Edit size={14} /> Edit
-                      </button>
-                      <button onClick={() => { setMenuOpen(false); onDelete(); }} className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm hover:bg-[var(--bg-surface-light)] transition-colors" style={{ color: 'var(--danger)' }}>
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <>
+                <button onClick={onEdit} className="btn btn-ghost btn-icon p-1.5" title="Edit"><Edit size={14} /></button>
+                <button onClick={onDelete} className="btn btn-ghost btn-icon p-1.5" title="Delete" style={{ color: 'var(--danger)' }}><Trash2 size={14} /></button>
+              </>
             )}
           </div>
         </div>

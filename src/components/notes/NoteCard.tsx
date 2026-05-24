@@ -40,6 +40,7 @@ export default function NoteCard({ item, onEdit, onDelete, pin, setPin, verifyPi
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showPin, setShowPin] = useState(false);
+  const [showPinValue, setShowPinValue] = useState(false);
 
   const handleDecrypt = async () => {
     if (decrypted) { setDecrypted(null); setExpanded(false); return; }
@@ -88,8 +89,15 @@ export default function NoteCard({ item, onEdit, onDelete, pin, setPin, verifyPi
           {showPin && !decrypted && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
               <div className="flex gap-2 mb-3">
-                <input type="password" placeholder="Enter PIN" value={pin} onChange={e => setPin(e.target.value)} className="input text-sm flex-1"
-                  onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }} />
+                <div className="relative flex-1">
+                  <input type={showPinValue ? 'text' : 'password'} placeholder="Enter PIN" value={pin} onChange={e => setPin(e.target.value)} className="input text-sm pr-10"
+                    onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }} />
+                  <button type="button" onClick={() => setShowPinValue(!showPinValue)} aria-label={showPinValue ? 'Hide PIN' : 'Show PIN'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
+                    style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
+                    <span className="text-base leading-none">{showPinValue ? '🙈' : '🙉'}</span>
+                  </button>
+                </div>
                 <button onClick={handlePinSubmit} disabled={loading} className="btn btn-primary text-sm px-3">
                   {loading ? <span className="spinner" /> : 'Unlock'}
                 </button>

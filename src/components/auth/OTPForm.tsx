@@ -4,6 +4,7 @@ import { Shield, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '../../utils/api-error';
 
 interface OTPFormProps { email: string }
 
@@ -44,8 +45,7 @@ export default function OTPForm({ email }: OTPFormProps) {
       toast.success('Email verified! Please login.');
       navigate('/login');
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Verification failed';
-      toast.error(msg);
+      toast.error(getApiErrorMessage(err, 'Verification failed'));
     }
   };
 

@@ -25,6 +25,7 @@ function NavContent({ collapsed, onNav }: { collapsed: boolean; onNav?: () => vo
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogout, setShowLogout] = useState(false);
+  const [avatarOk, setAvatarOk] = useState(true);
 
   const handleLogout = () => {
     setShowLogout(false);
@@ -84,8 +85,17 @@ function NavContent({ collapsed, onNav }: { collapsed: boolean; onNav?: () => vo
       <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
         {!collapsed ? (
           <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white relative" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
+              {user?.avatarUrl && avatarOk ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user?.name || 'User'}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarOk(false)}
+                />
+              ) : (
+                <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
+              )}
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2" style={{ background: 'var(--success)', borderColor: 'var(--bg-surface)' }} />
             </div>
             <div className="flex-1 min-w-0">

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Search, Bell, Sun, Moon, Monitor, ChevronDown, User, Settings, LogOut } from 'lucide-react';
+import { Menu, Sun, Moon, Monitor, ChevronDown, User, Settings, LogOut } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useRef, useEffect } from 'react';
@@ -23,6 +23,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
+  const [avatarOk, setAvatarOk] = useState(true);
   const userRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
 
@@ -53,19 +54,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <h2 className="text-lg font-semibold flex-1">{title}</h2>
 
-      {/* Search hint */}
-      <button className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs" style={{ background: 'var(--bg-surface-light)', color: 'var(--text-muted)' }}>
-        <Search size={14} />
-        <span>Search</span>
-        <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>⌘K</kbd>
-      </button>
-
-      {/* Notifications */}
-      <button className="btn btn-ghost btn-icon relative">
-        <Bell size={18} />
-        <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: 'var(--accent-cyan)' }} />
-      </button>
-
       {/* Theme toggle */}
       <div ref={themeRef} className="relative">
         <button onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="btn btn-ghost btn-icon">
@@ -93,8 +81,17 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       {/* User menu */}
       <div ref={userRef} className="relative">
         <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 btn btn-ghost px-2 py-1.5">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
+            {user?.avatarUrl && avatarOk ? (
+              <img
+                src={user.avatarUrl}
+                alt={user?.name || 'User'}
+                className="w-full h-full object-cover"
+                onError={() => setAvatarOk(false)}
+              />
+            ) : (
+              <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
+            )}
           </div>
           <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
         </button>
