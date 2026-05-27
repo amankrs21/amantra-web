@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { vaultAPI } from '../../services/api';
 import { vaultCategories } from '../../utils/categories';
-import { encodeKey } from '../../utils/crypto';
 import { getPasswordStrength } from '../../utils/password-generator';
 import { useEncryptionKey } from '../../hooks/useEncryptionKey';
 import Modal from '../ui/Modal';
@@ -23,7 +22,7 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
   const [category, setCategory] = useState('other');
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { pin } = useEncryptionKey();
+  const { requireKey } = useEncryptionKey();
 
   const decodeBase64 = (value: string) => {
     try {
@@ -58,10 +57,9 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
       setPassword('');
       setNotes('');
 
-      if (!pin) return;
-
       try {
-        const key = encodeKey(pin);
+        const key = await requireKey();
+        if (!key) return;
         const res = await vaultAPI.decrypt(editItem._id, key);
         if (!active) return;
         const passwordValue = decodeBase64(res.data?.password || '');
@@ -74,17 +72,17 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
 
     loadEditData();
     return () => { active = false; };
-  }, [editItem, open, pin]);
+  }, [editItem, open, requireKey]);
 
   const strength = getPasswordStrength(password);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !username || !password) { toast.error('Fill all required fields'); return; }
-    if (!pin) { toast.error('Enter your encryption PIN'); return; }
     setSaving(true);
     try {
-      const key = encodeKey(pin);
+      const key = await requireKey();
+      if (!key) return;
       if (editItem) {
         await vaultAPI.update({ id: editItem._id, title, username, password, notes, category, key });
         toast.success('Updated');
