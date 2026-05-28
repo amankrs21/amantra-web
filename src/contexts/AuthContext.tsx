@@ -1,13 +1,15 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { authAPI } from '../services/api';
-import { PIN_STORAGE_KEY } from '../utils/crypto';
+import { clearStoredPin } from '../utils/crypto';
+import { useEncryptionKey } from '../hooks/useEncryptionKey';
 
 interface User {
   id: string;
   name: string;
   email: string;
   avatarUrl?: string;
+  weatherCity?: string;
 }
 
 interface AuthContextType {
@@ -25,12 +27,36 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { clearKey, openPrompt, setHasServerKey } = useEncryptionKey();
   const [user, setUser] = useState<User | null>(() => {
     const u = localStorage.getItem('user');
     return u ? JSON.parse(u) : null;
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(false);
+  const tokenExpiryKey = 'tokenExpiry';
+
+  const parseTokenExpiry = (jwt: string) => {
+    try {
+      const base64 = (jwt.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const payload = JSON.parse(atob(padded)) as { exp?: number };
+      return payload.exp ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setTokenWithExpiry = (nextToken: string | null) => {
+    setToken(nextToken);
+    if (nextToken) {
+      const exp = parseTokenExpiry(nextToken);
+      if (exp) localStorage.setItem(tokenExpiryKey, String(exp));
+      else localStorage.removeItem(tokenExpiryKey);
+    } else {
+      localStorage.removeItem(tokenExpiryKey);
+    }
+  };
 
   useEffect(() => {
     if (token) localStorage.setItem('token', token);
@@ -42,12 +68,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem('user');
   }, [user]);
 
+  useEffect(() => {
+    if (user?.weatherCity) localStorage.setItem('weatherCity', user.weatherCity);
+    else localStorage.removeItem('weatherCity');
+  }, [user]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('isKeySet');
+    if (stored !== null) setHasServerKey(stored === '1');
+  }, [setHasServerKey]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ token?: string; isKeySet?: boolean }>).detail;
+      if (detail?.token) setTokenWithExpiry(detail.token);
+      if (typeof detail?.isKeySet === 'boolean') {
+        setHasServerKey(detail.isKeySet);
+        localStorage.setItem('isKeySet', detail.isKeySet ? '1' : '0');
+      }
+    };
+    window.addEventListener('amantra:token-updated', handler);
+    return () => window.removeEventListener('amantra:token-updated', handler);
+  }, [setHasServerKey, setTokenWithExpiry]);
+
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
       const res = await authAPI.login({ email, password });
-      setToken(res.data.token);
+      setTokenWithExpiry(res.data.token);
       setUser(res.data.user);
+      const keySet = !!res.data.isKeySet;
+      setHasServerKey(keySet);
+      localStorage.setItem('isKeySet', keySet ? '1' : '0');
+      clearKey();
+      openPrompt(res.data.isKeySet ? 'verify' : 'set');
     } finally {
       setLoading(false);
     }
@@ -91,12 +145,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    setToken(null);
+    authAPI.logout().catch(() => { });
+    setTokenWithExpiry(null);
     setUser(null);
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
-    localStorage.removeItem(PIN_STORAGE_KEY);
+    localStorage.removeItem('isKeySet');
+    localStorage.removeItem('weatherCity');
+    clearKey();
   };
+
+  const refreshAccessToken = async () => {
+    try {
+      const res = await authAPI.refresh();
+      if (res.data?.token) {
+        setTokenWithExpiry(res.data.token);
+        if (res.data.user) setUser(res.data.user);
+        if (typeof res.data.isKeySet === 'boolean') {
+          setHasServerKey(res.data.isKeySet);
+          localStorage.setItem('isKeySet', res.data.isKeySet ? '1' : '0');
+        }
+        clearStoredPin();
+      }
+    } catch {
+      logout();
+    }
+  };
+
+  useEffect(() => {
+    const expRaw = localStorage.getItem(tokenExpiryKey);
+    const exp = expRaw ? Number(expRaw) : null;
+    if (!token || !exp) return;
+    if (Date.now() >= exp * 1000) {
+      refreshAccessToken();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const expRaw = localStorage.getItem(tokenExpiryKey);
+    const exp = expRaw ? Number(expRaw) : null;
+    if (!token || !exp) return;
+    const ms = exp * 1000 - Date.now();
+    if (ms <= 0) {
+      clearKey();
+      return;
+    }
+    const timer = window.setTimeout(() => clearKey(), ms);
+    return () => window.clearTimeout(timer);
+  }, [token, clearKey]);
 
   return (
     <AuthContext.Provider value={{ user, token, login, register, verify, forgotPassword, resetPassword, logout, loading }}>
