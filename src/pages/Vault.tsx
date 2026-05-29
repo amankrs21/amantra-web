@@ -47,7 +47,7 @@ export default function Vault() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
-  const { pin, setPin, verifyPin } = useEncryptionKey();
+  const { requireKey } = useEncryptionKey();
   const suggestionListId = 'vault-search-suggestions';
 
   const fetchPage = useCallback(async (nextOffset: number, append: boolean) => {
@@ -314,9 +314,7 @@ export default function Vault() {
                   bulkMode={bulkMode}
                   selected={selectedIds.has(item._id)}
                   onToggleSelect={() => toggleSelect(item._id)}
-                  pin={pin}
-                  setPin={setPin}
-                  verifyPin={verifyPin}
+                  requireKey={requireKey}
                 />
               </motion.div>
             ))}
