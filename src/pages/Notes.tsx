@@ -6,7 +6,6 @@ import { notesAPI } from '../services/api';
 import { noteCategories } from '../utils/categories';
 import NoteCard from '../components/notes/NoteCard';
 import Modal from '../components/ui/Modal';
-import { encodeKey } from '../utils/crypto';
 import { useEncryptionKey } from '../hooks/useEncryptionKey';
 import { getApiErrorMessage } from '../utils/api-error';
 
@@ -32,8 +31,7 @@ export default function Notes() {
   const [formCategory, setFormCategory] = useState('personal');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<NoteItem | null>(null);
-  const [showPinValue, setShowPinValue] = useState(false);
-  const { pin, setPin, verifyPin } = useEncryptionKey();
+  const { requireKey } = useEncryptionKey();
 
   const fetchItems = useCallback(async () => {
     try {
@@ -93,10 +91,10 @@ export default function Notes() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle || !formContent) { toast.error('Fill all fields'); return; }
-    if (!pin) { toast.error('Enter your PIN'); return; }
     setSaving(true);
     try {
-      const key = encodeKey(pin);
+      const key = await requireKey();
+      if (!key) return;
       if (editItem) {
         await notesAPI.update({ id: editItem._id, title: formTitle, content: formContent, key, category: formCategory });
         toast.success('Updated');
@@ -159,7 +157,7 @@ export default function Notes() {
           <AnimatePresence>
             {filtered.map((item, i) => (
               <motion.div key={item._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-                <NoteCard item={item} onEdit={() => openForm(item)} onDelete={() => requestDelete(item)} pin={pin} setPin={setPin} verifyPin={verifyPin} />
+                <NoteCard item={item} onEdit={() => openForm(item)} onDelete={() => requestDelete(item)} requireKey={requireKey} />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -202,17 +200,6 @@ export default function Notes() {
                   <cat.icon size={12} /> {cat.label}
                 </button>
               ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block">Encryption PIN *</label>
-            <div className="relative">
-              <input type={showPinValue ? 'text' : 'password'} value={pin} onChange={e => setPin(e.target.value)} className="input pr-10" placeholder="PIN" />
-              <button type="button" onClick={() => setShowPinValue(!showPinValue)} aria-label={showPinValue ? 'Hide PIN' : 'Show PIN'}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
-                style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
-                <span className="text-base leading-none">{showPinValue ? '🙈' : '🙉'}</span>
-              </button>
             </div>
           </div>
           <div className="flex gap-3 justify-end pt-2">
