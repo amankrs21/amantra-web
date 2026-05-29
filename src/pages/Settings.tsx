@@ -4,8 +4,7 @@ import { User, Shield, Palette, AlertTriangle, Save, Check, Trash2, Moon, Sun, M
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { userAPI, pinAPI } from '../services/api';
-import { encodeKey, PIN_STORAGE_KEY } from '../utils/crypto';
+import { userAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '../utils/api-error';
 
@@ -27,9 +26,6 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
-  const [newPin, setNewPin] = useState('');
-  const [pinSaving, setPinSaving] = useState(false);
-  const [showNewPin, setShowNewPin] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [avatarOk, setAvatarOk] = useState(true);
@@ -42,6 +38,10 @@ export default function Settings() {
       if (u.weatherCity) { setWeatherCity(u.weatherCity); localStorage.setItem('weatherCity', u.weatherCity); }
     }).catch(() => { });
   }, []);
+
+  useEffect(() => {
+    setAvatarOk(true);
+  }, [user?.id, user?.avatarUrl]);
 
   const saveProfile = async () => {
     setProfileSaving(true);
@@ -67,18 +67,6 @@ export default function Settings() {
     finally { setPasswordSaving(false); }
   };
 
-  const setEncryptionPin = async () => {
-    if (!newPin || newPin.length < 4) { toast.error('PIN must be at least 4 characters'); return; }
-    setPinSaving(true);
-    try {
-      const key = encodeKey(newPin);
-      await pinAPI.set(key);
-      localStorage.setItem(PIN_STORAGE_KEY, key);
-      setNewPin('');
-      toast.success('Encryption PIN set');
-    } catch { toast.error('Failed'); }
-    finally { setPinSaving(false); }
-  };
 
   const deactivateAccount = async () => {
     if (!confirm('This will permanently delete your account. Are you sure?')) return;
@@ -205,21 +193,6 @@ export default function Settings() {
               </button>
             </div>
 
-            <div className="card p-6 space-y-4">
-              <h3 className="text-lg font-semibold">Encryption PIN</h3>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Set or update your encryption PIN for vault and notes.</p>
-              <div className="relative">
-                <input type={showNewPin ? 'text' : 'password'} value={newPin} onChange={e => setNewPin(e.target.value)} className="input pr-10" placeholder="New PIN (min 4 chars)" />
-                <button type="button" onClick={() => setShowNewPin(!showNewPin)} aria-label={showNewPin ? 'Hide PIN' : 'Show PIN'}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
-                  style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
-                  <span className="text-base leading-none">{showNewPin ? '🙈' : '🙉'}</span>
-                </button>
-              </div>
-              <button onClick={setEncryptionPin} disabled={pinSaving} className="btn btn-primary">
-                {pinSaving ? <span className="spinner" /> : 'Set PIN'}
-              </button>
-            </div>
           </motion.div>
         )}
 

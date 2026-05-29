@@ -111,10 +111,9 @@ function SecurityScore({ score }: { score: number }) {
   );
 }
 
-function WeatherWidget() {
+function WeatherWidget({ city }: { city: string | null }) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
-  const city = localStorage.getItem('weatherCity');
 
   useEffect(() => {
     if (!city) {
@@ -335,6 +334,10 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    setAvatarOk(true);
+  }, [user?.id, user?.avatarUrl]);
+
+  useEffect(() => {
     Promise.allSettled([
       vaultAPI.fetch({ pageSize: DASHBOARD_VAULT_PAGE_SIZE, offSet: 0 }),
       notesAPI.fetch(),
@@ -364,6 +367,7 @@ export default function Dashboard() {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const greeting = getGreeting(now.getHours());
   const firstName = user?.name?.split(' ')[0] || 'there';
+  const city = user?.weatherCity ?? localStorage.getItem('weatherCity') ?? null;
 
   const statCards = [
     { label: 'Vault Items', value: stats.vault, suffix: stats.vaultHasMore ? '+' : '', icon: Lock, color: 'var(--accent-blue)', glow: 'rgba(79, 70, 229, 0.25)' },
@@ -449,7 +453,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        <WeatherWidget />
+        <WeatherWidget city={city} />
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
