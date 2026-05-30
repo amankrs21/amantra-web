@@ -4,7 +4,6 @@ import { Eye, Edit, Trash2, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { notesAPI } from '../../services/api';
 import { getCategoryLabel, noteCategories } from '../../utils/categories';
-import { encodeKey } from '../../utils/crypto';
 
 interface NoteItem {
   _id: string;
@@ -18,9 +17,7 @@ interface Props {
   item: NoteItem;
   onEdit: () => void;
   onDelete: () => void;
-  pin: string;
-  setPin: (v: string) => void;
-  verifyPin: () => Promise<string | null>;
+  requireKey: () => Promise<string | null>;
 }
 
 function timeAgo(date: string): string {
@@ -35,34 +32,20 @@ function timeAgo(date: string): string {
   return new Date(date).toLocaleDateString();
 }
 
-export default function NoteCard({ item, onEdit, onDelete, pin, setPin, verifyPin }: Props) {
+export default function NoteCard({ item, onEdit, onDelete, requireKey }: Props) {
   const [decrypted, setDecrypted] = useState<{ content: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showPin, setShowPin] = useState(false);
-  const [showPinValue, setShowPinValue] = useState(false);
 
   const handleDecrypt = async () => {
     if (decrypted) { setDecrypted(null); setExpanded(false); return; }
-    if (!pin) { setShowPin(true); return; }
     setLoading(true);
     try {
-      const key = encodeKey(pin);
-      const res = await notesAPI.decrypt(item._id, key);
-      setDecrypted(res.data);
-    } catch { toast.error('Decryption failed'); }
-    finally { setLoading(false); }
-  };
-
-  const handlePinSubmit = async () => {
-    setLoading(true);
-    try {
-      const key = await verifyPin();
+      const key = await requireKey();
       if (!key) return;
       const res = await notesAPI.decrypt(item._id, key);
       setDecrypted(res.data);
-      setShowPin(false);
-    } catch { toast.error('Invalid PIN'); }
+    } catch { toast.error('Decryption failed'); }
     finally { setLoading(false); }
   };
 
@@ -84,27 +67,6 @@ export default function NoteCard({ item, onEdit, onDelete, pin, setPin, verifyPi
           </div>
           <span className="badge badge-cyan text-[10px] shrink-0">{getCategoryLabel(noteCategories, item.category)}</span>
         </div>
-
-        <AnimatePresence>
-          {showPin && !decrypted && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-              <div className="flex gap-2 mb-3">
-                <div className="relative flex-1">
-                  <input type={showPinValue ? 'text' : 'password'} placeholder="Enter PIN" value={pin} onChange={e => setPin(e.target.value)} className="input text-sm pr-10"
-                    onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }} />
-                  <button type="button" onClick={() => setShowPinValue(!showPinValue)} aria-label={showPinValue ? 'Hide PIN' : 'Show PIN'}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
-                    style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
-                    <span className="text-base leading-none">{showPinValue ? '🙈' : '🙉'}</span>
-                  </button>
-                </div>
-                <button onClick={handlePinSubmit} disabled={loading} className="btn btn-primary text-sm px-3">
-                  {loading ? <span className="spinner" /> : 'Unlock'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {decrypted && (

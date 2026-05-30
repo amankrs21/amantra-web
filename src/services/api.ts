@@ -1,12 +1,47 @@
 import axios from 'axios';
-import { PIN_STORAGE_KEY } from '../utils/crypto';
+import { clearStoredPin } from '../utils/crypto';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
+
+const tokenExpiryKey = 'tokenExpiry';
+
+const parseTokenExpiry = (jwt: string) => {
+  try {
+    const base64 = (jwt.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+    return payload.exp ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const storeToken = (token: string | null) => {
+  if (token) {
+    localStorage.setItem('token', token);
+    const exp = parseTokenExpiry(token);
+    if (exp && Number.isFinite(exp)) {
+      const now = Math.floor(Date.now() / 1000);
+      const maxFuture = now + 60 * 60 * 24 * 2;
+      if (exp >= now - 60 && exp <= maxFuture) {
+        localStorage.setItem(tokenExpiryKey, String(exp));
+      } else {
+        localStorage.removeItem(tokenExpiryKey);
+      }
+    } else {
+      localStorage.removeItem(tokenExpiryKey);
+    }
+  } else {
+    localStorage.removeItem('token');
+    localStorage.removeItem(tokenExpiryKey);
+  }
+};
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -16,15 +51,47 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
     const requestUrl = err.config?.url as string | undefined;
-    const isLoginRequest = requestUrl?.includes('/auth/login');
+    const isAuthRequest = requestUrl?.includes('/auth/login') || requestUrl?.includes('/auth/refresh');
 
-    if (err.response?.status === 401 && !isLoginRequest) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem(PIN_STORAGE_KEY);
-      window.location.href = '/login';
+    if (err.response?.status === 401 && !isAuthRequest) {
+      const originalRequest = err.config as (typeof err.config & { _retry?: boolean }) | undefined;
+      if (originalRequest?._retry) {
+        storeToken(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('isKeySet');
+        clearStoredPin();
+        window.location.href = '/login';
+        return Promise.reject(err);
+      }
+
+      if (!originalRequest) return Promise.reject(err);
+      originalRequest._retry = true;
+      try {
+        const refreshRes = await api.post('/auth/refresh');
+        const newToken = refreshRes.data?.token as string | undefined;
+        const isKeySet = refreshRes.data?.isKeySet as boolean | undefined;
+        if (newToken) {
+          storeToken(newToken);
+          if (typeof isKeySet === 'boolean') {
+            localStorage.setItem('isKeySet', isKeySet ? '1' : '0');
+          }
+          clearStoredPin();
+          window.dispatchEvent(new CustomEvent('amantra:token-updated', { detail: { token: newToken, isKeySet } }));
+          originalRequest.headers = {
+            ...(originalRequest.headers || {}),
+            Authorization: `Bearer ${newToken}`,
+          };
+          return api(originalRequest);
+        }
+      } catch {
+        storeToken(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('isKeySet');
+        clearStoredPin();
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
@@ -37,6 +104,8 @@ export const authAPI = {
   login: (data: { email: string; password: string }) => api.post('/auth/login', data),
   forgotPassword: (data: { email: string }) => api.post('/auth/forgot-password', data),
   resetPassword: (data: { email: string; otp: string; password: string }) => api.post('/auth/reset-password', data),
+  refresh: () => api.post('/auth/refresh'),
+  logout: () => api.post('/auth/logout'),
 };
 
 // Vault
@@ -73,6 +142,7 @@ export const newsletterAPI = {
 // User
 export const userAPI = {
   fetch: () => api.get('/user/fetch'),
+  overview: () => api.get('/user/overview'),
   update: (data: { name?: string; dateOfBirth?: string; weatherCity?: string }) => api.patch('/user/update', data),
   changePassword: (data: { oldPassword: string; newPassword: string }) => api.patch('/user/changePassword', data),
   deactivate: () => api.delete('/user/deactivate'),

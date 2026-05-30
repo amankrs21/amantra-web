@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Eye, Edit, Trash2, Check, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { vaultAPI } from '../../services/api';
 import { getCategoryLabel, vaultCategories } from '../../utils/categories';
-import { encodeKey } from '../../utils/crypto';
 
 interface VaultItem {
   _id: string;
@@ -22,9 +21,7 @@ interface Props {
   bulkMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
-  pin: string;
-  setPin: (v: string) => void;
-  verifyPin: () => Promise<string | null>;
+  requireKey: () => Promise<string | null>;
 }
 
 function timeAgo(date: string): string {
@@ -53,37 +50,44 @@ function decodeBase64(value: string): string {
   }
 }
 
-export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, onToggleSelect, pin, setPin, verifyPin }: Props) {
+export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, onToggleSelect, requireKey }: Props) {
   const [decrypted, setDecrypted] = useState<{ password: string; notes?: string } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showPin, setShowPin] = useState(false);
-  const [showPinValue, setShowPinValue] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!showPassword) {
+      if (hideTimerRef.current) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      return;
+    }
+    if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = window.setTimeout(() => {
+      setShowPassword(false);
+      hideTimerRef.current = null;
+    }, 5000);
+    return () => {
+      if (hideTimerRef.current) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, [showPassword]);
 
   const handleDecrypt = async () => {
     if (decrypted) { setDecrypted(null); setShowPassword(false); return; }
-    if (!pin) { setShowPin(true); return; }
     setLoading(true);
     try {
-      const key = encodeKey(pin);
-      const res = await vaultAPI.decrypt(item._id, key);
-      const password = decodeBase64(res.data?.password || '');
-      setDecrypted({ ...res.data, password });
-    } catch { toast.error('Decryption failed. Check your PIN.'); }
-    finally { setLoading(false); }
-  };
-
-  const handlePinSubmit = async () => {
-    setLoading(true);
-    try {
-      const key = await verifyPin();
+      const key = await requireKey();
       if (!key) return;
       const res = await vaultAPI.decrypt(item._id, key);
       const password = decodeBase64(res.data?.password || '');
       setDecrypted({ ...res.data, password });
-      setShowPin(false);
-    } catch { toast.error('Invalid PIN'); }
+    } catch { toast.error('Decryption failed. Check your encryption key.'); }
     finally { setLoading(false); }
   };
 
@@ -131,28 +135,6 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
           </div>
           <span className="badge badge-purple text-[10px] shrink-0">{getCategoryLabel(vaultCategories, item.category)}</span>
         </div>
-
-        {/* PIN input */}
-        <AnimatePresence>
-          {showPin && !decrypted && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-              <div className="flex gap-2 mb-3">
-                <div className="relative flex-1">
-                  <input type={showPinValue ? 'text' : 'password'} placeholder="Enter PIN" value={pin} onChange={e => setPin(e.target.value)} className="input text-sm pr-10"
-                    onKeyDown={e => { if (e.key === 'Enter') handlePinSubmit(); }} />
-                  <button type="button" onClick={() => setShowPinValue(!showPinValue)} aria-label={showPinValue ? 'Hide PIN' : 'Show PIN'}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-md"
-                    style={{ color: 'var(--text-secondary)', background: 'transparent' }}>
-                    <span className="text-base leading-none">{showPinValue ? '🙈' : '🙉'}</span>
-                  </button>
-                </div>
-                <button onClick={handlePinSubmit} disabled={loading} className="btn btn-primary text-sm px-3">
-                  {loading ? <span className="spinner" /> : 'Unlock'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Decrypted content */}
         <AnimatePresence>

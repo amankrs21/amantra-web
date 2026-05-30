@@ -38,6 +38,10 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    setAvatarOk(true);
+  }, [user?.id, user?.avatarUrl]);
+
   const themeIcon = resolved === 'dark' ? <Moon size={18} /> : <Sun size={18} />;
 
   const handleLogout = () => {
