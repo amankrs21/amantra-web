@@ -133,6 +133,7 @@ export const newsletterAPI = {
 // User
 export const userAPI = {
   fetch: () => api.get('/user/fetch'),
+  overview: () => api.get('/user/overview'),
   update: (data: { name?: string; dateOfBirth?: string; weatherCity?: string }) => api.patch('/user/update', data),
   changePassword: (data: { oldPassword: string; newPassword: string }) => api.patch('/user/changePassword', data),
   deactivate: () => api.delete('/user/deactivate'),

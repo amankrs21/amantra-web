@@ -48,6 +48,7 @@ export default function Settings() {
     try {
       await userAPI.update({ name, dateOfBirth: dob || undefined, weatherCity: weatherCity || undefined });
       if (weatherCity) localStorage.setItem('weatherCity', weatherCity);
+      else localStorage.removeItem('weatherCity');
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
       toast.success('Profile updated');

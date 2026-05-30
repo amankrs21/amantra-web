@@ -24,7 +24,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { vaultAPI, notesAPI, watchlistAPI } from '../services/api';
+import { userAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const DASHBOARD_VAULT_PAGE_SIZE = 30;
@@ -323,7 +323,7 @@ function WeatherWidget({ city }: { city: string | null }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ vault: 0, notes: 0, watchlist: 0, vaultHasMore: false });
+  const [stats, setStats] = useState({ vault: 0, notes: 0, watchlist: 0, vaultHasMore: false, securityScore: 40 });
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
   const [avatarOk, setAvatarOk] = useState(true);
@@ -338,22 +338,19 @@ export default function Dashboard() {
   }, [user?.id, user?.avatarUrl]);
 
   useEffect(() => {
-    Promise.allSettled([
-      vaultAPI.fetch({ pageSize: DASHBOARD_VAULT_PAGE_SIZE, offSet: 0 }),
-      notesAPI.fetch(),
-      watchlistAPI.fetch(),
-    ])
-      .then(([v, n, w]) => {
-        const vaultItems = v.status === 'fulfilled' ? (v.value.data?.items ?? v.value.data ?? []) : [];
-        const vaultCount = Array.isArray(vaultItems) ? vaultItems.length : 0;
-        const vaultHasMore = vaultCount >= DASHBOARD_VAULT_PAGE_SIZE;
+    userAPI.overview()
+      .then((res) => {
+        const counts = res.data?.counts || {};
+        const vaultCount = Number(counts.vault ?? 0);
         setStats({
           vault: vaultCount,
-          notes: n.status === 'fulfilled' ? (n.value.data?.items?.length ?? n.value.data?.length ?? 0) : 0,
-          watchlist: w.status === 'fulfilled' ? (w.value.data?.items?.length ?? w.value.data?.length ?? 0) : 0,
-          vaultHasMore,
+          notes: Number(counts.notes ?? 0),
+          watchlist: Number(counts.watchlist ?? 0),
+          vaultHasMore: vaultCount >= DASHBOARD_VAULT_PAGE_SIZE,
+          securityScore: Number(res.data?.securityScore ?? 40),
         });
       })
+      .catch(() => setStats({ vault: 0, notes: 0, watchlist: 0, vaultHasMore: false, securityScore: 40 }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -370,7 +367,7 @@ export default function Dashboard() {
   const city = user?.weatherCity ?? localStorage.getItem('weatherCity') ?? null;
 
   const statCards = [
-    { label: 'Vault Items', value: stats.vault, suffix: stats.vaultHasMore ? '+' : '', icon: Lock, color: 'var(--accent-blue)', glow: 'rgba(79, 70, 229, 0.25)' },
+    { label: 'Vault Items', value: stats.vault, suffix: '', icon: Lock, color: 'var(--accent-blue)', glow: 'rgba(79, 70, 229, 0.25)' },
     { label: 'Notes', value: stats.notes, suffix: '', icon: FileText, color: 'var(--accent-cyan)', glow: 'rgba(6, 182, 212, 0.25)' },
     { label: 'Watchlist', value: stats.watchlist, suffix: '', icon: Film, color: 'var(--accent-pink)', glow: 'rgba(236, 72, 153, 0.25)' },
   ];
@@ -382,7 +379,7 @@ export default function Dashboard() {
     { label: 'Read Newsletter', icon: Newspaper, action: () => navigate('/newsletter'), color: 'var(--accent-blue)', bg: 'rgba(59, 130, 246, 0.18)' },
   ];
 
-  const securityScore = Math.min(100, 40 + stats.vault * 5 + stats.notes * 3);
+  const securityScore = stats.securityScore;
 
   return (
     <div className="dashboard-wrap space-y-8">
