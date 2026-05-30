@@ -8,6 +8,10 @@ import { userAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '../utils/api-error';
 
+const sanitizeWeatherCity = (value: string) => (
+  value.trim().replace(/[^a-zA-Z0-9\s.'-]/g, '').slice(0, 64)
+);
+
 export default function Settings() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -35,7 +39,12 @@ export default function Settings() {
       const u = res.data.user || res.data;
       if (u.name) setName(u.name);
       if (u.dateOfBirth) setDob(u.dateOfBirth.split('T')[0]);
-      if (u.weatherCity) { setWeatherCity(u.weatherCity); localStorage.setItem('weatherCity', u.weatherCity); }
+      if (u.weatherCity) {
+        const cleanedCity = sanitizeWeatherCity(u.weatherCity);
+        setWeatherCity(cleanedCity);
+        if (cleanedCity) localStorage.setItem('weatherCity', cleanedCity);
+        else localStorage.removeItem('weatherCity');
+      }
     }).catch(() => { });
   }, []);
 
@@ -47,7 +56,8 @@ export default function Settings() {
     setProfileSaving(true);
     try {
       await userAPI.update({ name, dateOfBirth: dob || undefined, weatherCity: weatherCity || undefined });
-      if (weatherCity) localStorage.setItem('weatherCity', weatherCity);
+      const cleanedCity = sanitizeWeatherCity(weatherCity);
+      if (cleanedCity) localStorage.setItem('weatherCity', cleanedCity);
       else localStorage.removeItem('weatherCity');
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);

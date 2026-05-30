@@ -26,8 +26,17 @@ const storeToken = (token: string | null) => {
   if (token) {
     localStorage.setItem('token', token);
     const exp = parseTokenExpiry(token);
-    if (exp) localStorage.setItem(tokenExpiryKey, String(exp));
-    else localStorage.removeItem(tokenExpiryKey);
+    if (exp && Number.isFinite(exp)) {
+      const now = Math.floor(Date.now() / 1000);
+      const maxFuture = now + 60 * 60 * 24 * 2;
+      if (exp >= now - 60 && exp <= maxFuture) {
+        localStorage.setItem(tokenExpiryKey, String(exp));
+      } else {
+        localStorage.removeItem(tokenExpiryKey);
+      }
+    } else {
+      localStorage.removeItem(tokenExpiryKey);
+    }
   } else {
     localStorage.removeItem('token');
     localStorage.removeItem(tokenExpiryKey);

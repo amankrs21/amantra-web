@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { authAPI } from '../services/api';
 import { clearStoredPin } from '../utils/crypto';
@@ -25,6 +25,46 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
+const tokenExpiryKey = 'tokenExpiry';
+
+const parseTokenExpiry = (jwt: string) => {
+  try {
+    const base64 = (jwt.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+    return payload.exp ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const sanitizeWeatherCity = (value: string) => (
+  value.trim().replace(/[^a-zA-Z0-9\s.'-]/g, '').slice(0, 64)
+);
+
+const setWeatherCityStorage = (value?: string) => {
+  if (!value) {
+    localStorage.removeItem('weatherCity');
+    return;
+  }
+  const cleaned = sanitizeWeatherCity(value);
+  if (cleaned) localStorage.setItem('weatherCity', cleaned);
+  else localStorage.removeItem('weatherCity');
+};
+
+const setTokenExpiryStorage = (exp: number | null) => {
+  if (!exp || !Number.isFinite(exp)) {
+    localStorage.removeItem(tokenExpiryKey);
+    return;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const maxFuture = now + 60 * 60 * 24 * 2;
+  if (exp < now - 60 || exp > maxFuture) {
+    localStorage.removeItem(tokenExpiryKey);
+    return;
+  }
+  localStorage.setItem(tokenExpiryKey, String(exp));
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { clearKey, openPrompt, setHasServerKey } = useEncryptionKey();
@@ -34,37 +74,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(false);
-  const tokenExpiryKey = 'tokenExpiry';
 
-  const parseTokenExpiry = (jwt: string) => {
-    try {
-      const base64 = (jwt.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-      const payload = JSON.parse(atob(padded)) as { exp?: number };
-      return payload.exp ?? null;
-    } catch {
-      return null;
-    }
-  };
-
-  const setTokenWithExpiry = (nextToken: string | null) => {
+  const setTokenWithExpiry = useCallback((nextToken: string | null) => {
     setToken(nextToken);
     if (nextToken) {
       const exp = parseTokenExpiry(nextToken);
-      if (exp) localStorage.setItem(tokenExpiryKey, String(exp));
-      else localStorage.removeItem(tokenExpiryKey);
+      setTokenExpiryStorage(exp);
     } else {
       localStorage.removeItem(tokenExpiryKey);
     }
-  };
+  }, []);
 
-  const clearLocalSession = () => {
+  const clearLocalSession = useCallback(() => {
     setTokenWithExpiry(null);
     setUser(null);
     localStorage.clear();
     sessionStorage.clear();
     clearKey();
-  };
+  }, [clearKey, setTokenWithExpiry]);
 
   useEffect(() => {
     if (token) localStorage.setItem('token', token);
@@ -77,8 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (user?.weatherCity) localStorage.setItem('weatherCity', user.weatherCity);
-    else localStorage.removeItem('weatherCity');
+    setWeatherCityStorage(user?.weatherCity);
   }, [user]);
 
   useEffect(() => {
@@ -157,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLocalSession();
   };
 
-  const refreshAccessToken = async () => {
+  const refreshAccessToken = useCallback(async () => {
     try {
       const res = await authAPI.refresh();
       if (res.data?.token) {
@@ -172,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       clearLocalSession();
     }
-  };
+  }, [clearLocalSession, setHasServerKey, setTokenWithExpiry]);
 
   useEffect(() => {
     if (token) return;
@@ -192,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         clearLocalSession();
       });
-  }, []);
+  }, [setHasServerKey, setTokenWithExpiry, token, clearLocalSession]);
 
   useEffect(() => {
     const expRaw = localStorage.getItem(tokenExpiryKey);
@@ -201,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (Date.now() >= exp * 1000) {
       refreshAccessToken();
     }
-  }, [token]);
+  }, [token, refreshAccessToken]);
 
   useEffect(() => {
     const expRaw = localStorage.getItem(tokenExpiryKey);
