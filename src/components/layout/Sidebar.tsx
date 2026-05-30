@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Lock, FileText, Film, Newspaper, Settings, LogOut, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 
 interface SidebarProps {
@@ -26,6 +26,10 @@ function NavContent({ collapsed, onNav }: { collapsed: boolean; onNav?: () => vo
   const navigate = useNavigate();
   const [showLogout, setShowLogout] = useState(false);
   const [avatarOk, setAvatarOk] = useState(true);
+
+  useEffect(() => {
+    setAvatarOk(true);
+  }, [user?.id, user?.avatarUrl]);
 
   const handleLogout = () => {
     setShowLogout(false);
