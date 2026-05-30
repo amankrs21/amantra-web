@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import Modal from '../components/ui/Modal';
@@ -28,6 +28,7 @@ export function EncryptionKeyProvider({ children }: { children: ReactNode }) {
     const [submitting, setSubmitting] = useState(false);
     const [showValue, setShowValue] = useState(false);
     const [pendingResolve, setPendingResolve] = useState<((value: string | null) => void) | null>(null);
+    const pendingPromiseRef = useRef<Promise<string | null> | null>(null);
 
     useEffect(() => {
         const handler = () => {
@@ -54,10 +55,13 @@ export function EncryptionKeyProvider({ children }: { children: ReactNode }) {
 
     const requireKey = useCallback(() => {
         if (pin && verified) return Promise.resolve(encodeKey(pin));
-        return new Promise((resolve) => {
+        if (pendingPromiseRef.current) return pendingPromiseRef.current;
+        const nextPromise = new Promise<string | null>((resolve) => {
             setPendingResolve(() => resolve);
             openPrompt();
         });
+        pendingPromiseRef.current = nextPromise;
+        return nextPromise;
     }, [pin, verified, openPrompt]);
 
     const closeModal = useCallback(() => {
@@ -67,6 +71,7 @@ export function EncryptionKeyProvider({ children }: { children: ReactNode }) {
             pendingResolve(null);
             setPendingResolve(null);
         }
+        pendingPromiseRef.current = null;
     }, [pendingResolve]);
 
     const handleSubmit = useCallback(async () => {
@@ -91,6 +96,7 @@ export function EncryptionKeyProvider({ children }: { children: ReactNode }) {
                 pendingResolve(key);
                 setPendingResolve(null);
             }
+            pendingPromiseRef.current = null;
         } catch {
             toast.error('Invalid PIN');
         } finally {

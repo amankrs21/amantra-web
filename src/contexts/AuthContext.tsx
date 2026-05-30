@@ -58,6 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearLocalSession = () => {
+    setTokenWithExpiry(null);
+    setUser(null);
+    localStorage.clear();
+    sessionStorage.clear();
+    clearKey();
+  };
+
   useEffect(() => {
     if (token) localStorage.setItem('token', token);
     else localStorage.removeItem('token');
@@ -146,12 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     authAPI.logout().catch(() => { });
-    setTokenWithExpiry(null);
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('isKeySet');
-    localStorage.removeItem('weatherCity');
-    clearKey();
+    clearLocalSession();
   };
 
   const refreshAccessToken = async () => {
@@ -167,9 +170,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearStoredPin();
       }
     } catch {
-      logout();
+      clearLocalSession();
     }
   };
+
+  useEffect(() => {
+    if (token) return;
+    if (!localStorage.getItem('user')) return;
+    authAPI.refresh()
+      .then((res) => {
+        if (res.data?.token) {
+          setTokenWithExpiry(res.data.token);
+          if (res.data.user) setUser(res.data.user);
+          if (typeof res.data.isKeySet === 'boolean') {
+            setHasServerKey(res.data.isKeySet);
+            localStorage.setItem('isKeySet', res.data.isKeySet ? '1' : '0');
+          }
+          clearStoredPin();
+        }
+      })
+      .catch(() => {
+        clearLocalSession();
+      });
+  }, []);
 
   useEffect(() => {
     const expRaw = localStorage.getItem(tokenExpiryKey);
