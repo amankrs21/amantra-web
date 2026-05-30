@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Eye, Edit, Trash2, Check, Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -55,6 +55,28 @@ export default function VaultCard({ item, onEdit, onDelete, bulkMode, selected, 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!showPassword) {
+      if (hideTimerRef.current) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      return;
+    }
+    if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = window.setTimeout(() => {
+      setShowPassword(false);
+      hideTimerRef.current = null;
+    }, 5000);
+    return () => {
+      if (hideTimerRef.current) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, [showPassword]);
 
   const handleDecrypt = async () => {
     if (decrypted) { setDecrypted(null); setShowPassword(false); return; }
