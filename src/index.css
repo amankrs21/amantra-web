@@ -580,12 +580,24 @@ textarea.input {
   border-left: 3px solid #22c55e;
 }
 
+.category-banking {
+  border-left: 3px solid #22c55e;
+}
+
 .category-work {
   border-left: 3px solid #f59e0b;
 }
 
 .category-entertainment {
   border-left: 3px solid #ec4899;
+}
+
+.category-media {
+  border-left: 3px solid #ec4899;
+}
+
+.category-email {
+  border-left: 3px solid #8b5cf6;
 }
 
 .category-dev {
@@ -618,6 +630,10 @@ textarea.input {
 
 .category-ideas {
   border-left: 3px solid #f59e0b;
+}
+
+.category-important {
+  border-left: 3px solid #ef4444;
 }
 
 .category-other {
