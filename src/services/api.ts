@@ -102,6 +102,7 @@ export const authAPI = {
   register: (data: { name: string; email: string; password: string }) => api.post('/auth/register', data),
   verify: (data: { email: string; otp: string }) => api.post('/auth/verify', data),
   login: (data: { email: string; password: string }) => api.post('/auth/login', data),
+  google: (data: { idToken: string }) => api.post('/auth/google', data),
   forgotPassword: (data: { email: string }) => api.post('/auth/forgot-password', data),
   resetPassword: (data: { email: string; otp: string; password: string }) => api.post('/auth/reset-password', data),
   refresh: () => api.post('/auth/refresh'),
@@ -145,7 +146,8 @@ export const userAPI = {
   overview: () => api.get('/user/overview'),
   update: (data: { name?: string; dateOfBirth?: string; weatherCity?: string }) => api.patch('/user/update', data),
   changePassword: (data: { oldPassword: string; newPassword: string }) => api.patch('/user/changePassword', data),
-  deactivate: () => api.delete('/user/deactivate'),
+  requestDeactivateOtp: (data: { email: string }) => api.post('/user/deactivate/request', data),
+  confirmDeactivateOtp: (data: { email: string; otp: string }) => api.post('/user/deactivate/confirm', data),
 };
 
 // PIN
@@ -153,6 +155,8 @@ export const pinAPI = {
   verify: (key: string) => api.post('/pin/verify', { key }),
   set: (key: string) => api.post('/pin/setText', { key }),
   reset: () => api.get('/pin/reset'),
+  requestResetOtp: () => api.post('/pin/forgot'),
+  verifyResetOtp: (data: { otp: string }) => api.post('/pin/forgot/verify', data),
 };
 
 export default api;
