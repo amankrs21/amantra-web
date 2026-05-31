@@ -23,6 +23,14 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { requireKey } = useEncryptionKey();
+  const validCategories = new Set<string>(vaultCategories.map((c) => c.value));
+
+  const normalizeCategory = (value?: string) => {
+    const normalized = (value || '').trim().toLowerCase();
+    if (validCategories.has(normalized)) return normalized;
+    if (normalized === 'entertainment') return 'media';
+    return 'other';
+  };
 
   const decodeBase64 = (value: string) => {
     try {
@@ -53,7 +61,7 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
 
       setTitle(editItem.title);
       setUsername(editItem.username);
-      setCategory(editItem.category);
+      setCategory(normalizeCategory(editItem.category));
       setPassword('');
       setNotes('');
 
@@ -83,11 +91,12 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
     try {
       const key = await requireKey();
       if (!key) return;
+      const safeCategory = normalizeCategory(category);
       if (editItem) {
-        await vaultAPI.update({ id: editItem._id, title, username, password, notes, category, key });
+        await vaultAPI.update({ id: editItem._id, title, username, password, notes, category: safeCategory, key });
         toast.success('Updated');
       } else {
-        await vaultAPI.add({ title, username, password, category, key });
+        await vaultAPI.add({ title, username, password, category: safeCategory, key });
         toast.success('Added to vault');
       }
       onSaved();
