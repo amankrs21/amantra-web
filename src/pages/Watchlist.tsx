@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Film, Star, Trash2, Edit, ChevronDown, ChevronUp, Clock, Eye, CheckCircle } from 'lucide-react';
+import { Plus, Film, Star, Trash2, Edit, ChevronDown, ChevronUp, Clock, Eye, CheckCircle, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import { watchlistAPI } from '../services/api';
 import { watchlistCategories, watchlistStatuses } from '../utils/categories';
@@ -76,6 +76,8 @@ export default function Watchlist() {
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const filtered = activeCategory === 'all' ? items : items.filter(i => i.category === activeCategory);
+  const categoryCount = (cat: string) => cat === 'all' ? items.length : items.filter(i => i.category === cat).length;
+  const categoryFilters = [{ value: 'all', label: 'All', icon: LayoutGrid }, ...watchlistCategories];
 
   const openForm = (item?: WatchlistItem) => {
     if (item) {
@@ -161,13 +163,19 @@ export default function Watchlist() {
 
       {/* Category tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {[{ value: 'all', label: 'All' }, ...watchlistCategories].map(cat => (
+        {categoryFilters.map(cat => {
+          const Icon = cat.icon;
+          return (
           <button key={cat.value} onClick={() => setActiveCategory(cat.value)}
             className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
             style={{ background: activeCategory === cat.value ? 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))' : 'var(--bg-surface-light)', color: activeCategory === cat.value ? 'white' : 'var(--text-secondary)' }}>
-            {cat.label}
+            <span className="flex items-center gap-1.5">
+              <Icon size={14} />
+              <span>{cat.label} ({categoryCount(cat.value)})</span>
+            </span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {loading ? (
