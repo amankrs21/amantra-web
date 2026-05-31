@@ -28,7 +28,8 @@ function timeAgo(date: string): string {
   return new Date(date).toLocaleDateString();
 }
 
-const categories = ['all', 'tech', 'ai', 'security', 'business', 'science', 'other'];
+import { newsletterCategories } from '../utils/categories';
+
 
 export default function Newsletter() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -65,11 +66,11 @@ export default function Newsletter() {
 
       {/* Category tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {categories.map(cat => (
-          <button key={cat} onClick={() => { setActiveCategory(cat); setLoading(true); }}
+        {newsletterCategories.map(cat => (
+          <button key={cat.value} onClick={() => { setActiveCategory(cat.value); setLoading(true); }}
             className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap capitalize transition-all"
-            style={{ background: activeCategory === cat ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-cyan))' : 'var(--bg-surface-light)', color: activeCategory === cat ? 'white' : 'var(--text-secondary)' }}>
-            {cat}
+            style={{ background: activeCategory === cat.value ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-cyan))' : 'var(--bg-surface-light)', color: activeCategory === cat.value ? 'white' : 'var(--text-secondary)' }}>
+            <div className="flex items-center gap-1.5"><cat.icon size={16} />{cat.label}</div>
           </button>
         ))}
       </div>

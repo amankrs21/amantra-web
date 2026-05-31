@@ -134,6 +134,7 @@ export default function Vault() {
   }, [items]);
 
   const categoryCount = (cat: string) => cat === 'all' ? items.length : items.filter(i => i.category === cat).length;
+  const categoryFilters = [{ value: 'all', label: 'All', icon: Grid3X3 }, ...vaultCategories];
 
   const requestDelete = (item: VaultItem) => {
     setConfirmDelete(item);
@@ -267,13 +268,19 @@ export default function Vault() {
 
       {/* Category pills */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        {[{ value: 'all', label: 'All' }, ...vaultCategories].map(cat => (
+        {categoryFilters.map(cat => {
+          const Icon = cat.icon;
+          return (
           <button key={cat.value} onClick={() => setCategory(cat.value)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${category === cat.value ? 'text-white' : ''}`}
             style={{ background: category === cat.value ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))' : 'var(--bg-surface-light)', color: category === cat.value ? 'white' : 'var(--text-secondary)' }}>
-            {cat.label} ({categoryCount(cat.value)})
+            <span className="flex items-center gap-1.5">
+              <Icon size={12} />
+              <span>{cat.label} ({categoryCount(cat.value)})</span>
+            </span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* Bulk actions */}
