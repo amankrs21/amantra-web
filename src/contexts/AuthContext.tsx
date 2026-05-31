@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<{ email: string }>;
   verify: (email: string, otp: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -141,6 +142,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async (idToken: string) => {
+    setLoading(true);
+    try {
+      const res = await authAPI.google({ idToken });
+      setTokenWithExpiry(res.data.token);
+      setUser(res.data.user);
+      const keySet = !!res.data.isKeySet;
+      setHasServerKey(keySet);
+      localStorage.setItem('isKeySet', keySet ? '1' : '0');
+      clearKey();
+      openPrompt(res.data.isKeySet ? 'verify' : 'set');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
@@ -243,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, clearKey]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, verify, forgotPassword, resetPassword, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, loginWithGoogle, register, verify, forgotPassword, resetPassword, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

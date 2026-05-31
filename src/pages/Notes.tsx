@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Grid3X3, List, FileText, SortAsc, SortDesc } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,9 +29,25 @@ export default function Notes() {
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
   const [formCategory, setFormCategory] = useState('personal');
+  const [loadingEditContent, setLoadingEditContent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<NoteItem | null>(null);
   const { requireKey } = useEncryptionKey();
+  const editContentRequestIdRef = useRef(0);
+
+  const decodeBase64 = (value: string) => {
+    try {
+      const binary = atob(value);
+      try {
+        const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
+      } catch {
+        return binary;
+      }
+    } catch {
+      return value;
+    }
+  };
 
   const fetchItems = useCallback(async () => {
     try {
@@ -54,6 +70,8 @@ export default function Notes() {
       const dateB = new Date(b.updatedAt).getTime();
       return sortAsc ? dateA - dateB : dateB - dateA;
     });
+  const categoryCount = (cat: string) => cat === 'all' ? items.length : items.filter(i => i.category === cat).length;
+  const categoryFilters = [{ value: 'all', label: 'All', icon: Grid3X3 }, ...noteCategories];
 
   const requestDelete = (item: NoteItem) => {
     setConfirmDelete(item);
@@ -73,19 +91,38 @@ export default function Notes() {
     }
   };
 
-  const openForm = (item?: NoteItem) => {
+  const openForm = async (item?: NoteItem) => {
+    const requestId = ++editContentRequestIdRef.current;
     if (item) {
       setEditItem(item);
       setFormTitle(item.title);
       setFormCategory(item.category);
       setFormContent('');
+      setLoadingEditContent(true);
+      setShowForm(true);
+      try {
+        const key = await requireKey();
+        if (!key || editContentRequestIdRef.current !== requestId) return;
+        const res = await notesAPI.decrypt(item._id, key);
+        if (editContentRequestIdRef.current !== requestId) return;
+        setFormContent(decodeBase64(res.data?.content || ''));
+      } catch {
+        if (editContentRequestIdRef.current === requestId) {
+          toast.error('Failed to load note content');
+        }
+      } finally {
+        if (editContentRequestIdRef.current === requestId) {
+          setLoadingEditContent(false);
+        }
+      }
     } else {
       setEditItem(null);
       setFormTitle('');
       setFormContent('');
       setFormCategory('personal');
+      setLoadingEditContent(false);
+      setShowForm(true);
     }
-    setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,6 +141,7 @@ export default function Notes() {
       }
       fetchItems();
       setShowForm(false);
+      setEditItem(null);
     } catch (err: any) {
       toast.error(getApiErrorMessage(err, 'Failed to save'));
     } finally { setSaving(false); }
@@ -132,13 +170,19 @@ export default function Notes() {
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {[{ value: 'all', label: 'All' }, ...noteCategories].map(cat => (
+        {categoryFilters.map(cat => {
+          const Icon = cat.icon;
+          return (
           <button key={cat.value} onClick={() => setCategory(cat.value)}
             className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all"
             style={{ background: category === cat.value ? 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))' : 'var(--bg-surface-light)', color: category === cat.value ? 'white' : 'var(--text-secondary)' }}>
-            {cat.label}
+            <span className="flex items-center gap-1.5">
+              <Icon size={12} />
+              <span>{cat.label} ({categoryCount(cat.value)})</span>
+            </span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {loading ? (
@@ -180,7 +224,7 @@ export default function Notes() {
         </div>
       </Modal>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={editItem ? 'Edit Note' : 'New Note'}>
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditItem(null); setLoadingEditContent(false); }} title={editItem ? 'Edit Note' : 'New Note'}>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="text-sm font-medium mb-1 block">Title *</label>
@@ -188,7 +232,14 @@ export default function Notes() {
           </div>
           <div>
             <label className="text-sm font-medium mb-1 block">Content *</label>
-            <textarea value={formContent} onChange={e => setFormContent(e.target.value)} className="input" rows={6} placeholder="Write your note..." />
+            <textarea
+              value={formContent}
+              onChange={e => setFormContent(e.target.value)}
+              className="input"
+              rows={6}
+              placeholder={loadingEditContent ? 'Loading note content...' : 'Write your note...'}
+              disabled={loadingEditContent}
+            />
           </div>
           <div>
             <label className="text-sm font-medium mb-2 block">Category</label>
@@ -204,7 +255,7 @@ export default function Notes() {
           </div>
           <div className="flex gap-3 justify-end pt-2">
             <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn btn-primary">{saving ? <span className="spinner" /> : editItem ? 'Update' : 'Create'}</button>
+            <button type="submit" disabled={saving || loadingEditContent} className="btn btn-primary">{saving ? <span className="spinner" /> : editItem ? 'Update' : 'Create'}</button>
           </div>
         </form>
       </Modal>
