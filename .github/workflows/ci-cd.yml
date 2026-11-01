@@ -166,12 +166,10 @@ jobs:
       - name: Deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
         run: |
           npx wrangler@4 pages deploy dist \
-            --project-name "${CLOUDFLARE_PROJECT_NAME}" \
-            --account-id "${CLOUDFLARE_ACCOUNT_ID}"
+            --project-name "${CLOUDFLARE_PROJECT_NAME}"
 
       - name: Tag release
         id: tag_release
