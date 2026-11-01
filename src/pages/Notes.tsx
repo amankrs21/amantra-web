@@ -142,7 +142,7 @@ export default function Notes() {
       fetchItems();
       setShowForm(false);
       setEditItem(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to save'));
     } finally { setSaving(false); }
   };

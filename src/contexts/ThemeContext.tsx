@@ -19,7 +19,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return t;
   };
 
-  const [resolved, setResolved] = useState<'dark' | 'light'>(getResolved(theme));
+  const [systemResolved, setSystemResolved] = useState<'dark' | 'light'>(() => getResolved('system'));
+  const resolved = theme === 'system' ? systemResolved : theme;
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
@@ -28,7 +29,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const r = getResolved(theme);
-    setResolved(r);
     document.documentElement.setAttribute('data-theme', r);
   }, [theme]);
 
@@ -37,7 +37,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
       const r = getResolved('system');
-      setResolved(r);
+      setSystemResolved(r);
       document.documentElement.setAttribute('data-theme', r);
     };
     mq.addEventListener('change', handler);
@@ -47,4 +47,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeContext.Provider value={{ theme, setTheme, resolved }}>{children}</ThemeContext.Provider>;
 }
 
+// Context modules intentionally export both the provider and its consumer hook.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => useContext(ThemeContext);

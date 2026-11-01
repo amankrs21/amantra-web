@@ -91,7 +91,7 @@ export default function Settings() {
       await userAPI.changePassword({ oldPassword, newPassword });
       setOldPassword(''); setNewPassword(''); setConfirmPassword('');
       toast.success('Password changed');
-    } catch (err: any) { toast.error(getApiErrorMessage(err, 'Failed')); }
+    } catch (err: unknown) { toast.error(getApiErrorMessage(err, 'Failed')); }
     finally { setPasswordSaving(false); }
   };
 
