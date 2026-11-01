@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Lock, FileText, Film, Newspaper, Settings, LogOut, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Modal from '../ui/Modal';
 
 interface SidebarProps {
@@ -25,11 +25,7 @@ function NavContent({ collapsed, onNav }: { collapsed: boolean; onNav?: () => vo
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogout, setShowLogout] = useState(false);
-  const [avatarOk, setAvatarOk] = useState(true);
-
-  useEffect(() => {
-    setAvatarOk(true);
-  }, [user?.id, user?.avatarUrl]);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
 
   const handleLogout = () => {
     setShowLogout(false);
@@ -90,12 +86,12 @@ function NavContent({ collapsed, onNav }: { collapsed: boolean; onNav?: () => vo
         {!collapsed ? (
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
-              {user?.avatarUrl && avatarOk ? (
+              {user?.avatarUrl && user.avatarUrl !== failedAvatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   alt={user?.name || 'User'}
                   className="w-full h-full object-cover"
-                  onError={() => setAvatarOk(false)}
+                  onError={() => setFailedAvatarUrl(user.avatarUrl ?? null)}
                 />
               ) : (
                 <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>

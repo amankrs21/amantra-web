@@ -164,6 +164,8 @@ export function EncryptionKeyProvider({ children }: { children: ReactNode }) {
     );
 }
 
+// This module intentionally exports both the provider and its consumer hook.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useEncryptionKey() {
     return useContext(EncryptionKeyContext);
 }

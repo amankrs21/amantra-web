@@ -99,7 +99,7 @@ export default function LoginForm() {
             width,
           });
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) setGoogleError('Google sign-in unavailable');
       }
     };

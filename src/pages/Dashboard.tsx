@@ -46,6 +46,37 @@ type WeatherData = {
   hourly: { time: string; tempC: number; desc: string; chance: number }[];
 };
 
+type OpenWeatherForecastEntry = {
+  dt?: number;
+  main?: { temp?: number };
+  weather?: { description?: string }[];
+  pop?: number;
+};
+
+type WttrHourlyEntry = {
+  time?: string;
+  tempC?: string;
+  weatherDesc?: { value?: string }[];
+  chanceofrain?: string;
+};
+
+type WttrCurrentCondition = {
+  temp_C?: string;
+  FeelsLikeC?: string;
+  weatherDesc?: { value?: string }[];
+  humidity?: string;
+  windspeedKmph?: string;
+  winddir16Point?: string;
+  precipMM?: string;
+};
+
+type WttrDay = {
+  mintempC?: string;
+  maxtempC?: string;
+  astronomy?: { sunrise?: string; sunset?: string }[];
+  hourly?: WttrHourlyEntry[];
+};
+
 function getGreeting(hour: number): string {
   if (hour < 5) return 'Good night';
   if (hour < 12) return 'Good morning';
@@ -132,8 +163,8 @@ function WeatherWidget({ city }: { city: string | null }) {
           ]);
           if (!currentRes.ok || !forecastRes.ok) throw new Error('weather');
           const current = await currentRes.json();
-          const forecast = await forecastRes.json();
-          const hourly = (forecast.list || []).slice(0, 4).map((entry: any) => {
+          const forecast = await forecastRes.json() as { list?: OpenWeatherForecastEntry[] };
+          const hourly = (forecast.list || []).slice(0, 4).map((entry) => {
             const hour = new Date((entry.dt || 0) * 1000).getHours();
             return {
               time: formatHourLabel(hour),
@@ -166,11 +197,14 @@ function WeatherWidget({ city }: { city: string | null }) {
           if (active) setWeather(next);
         } else {
           const res = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`);
-          const data = await res.json();
+          const data = await res.json() as {
+            current_condition?: WttrCurrentCondition[];
+            weather?: WttrDay[];
+          };
           const current = data.current_condition?.[0];
           const daily = data.weather?.[0];
           const astronomy = daily?.astronomy?.[0];
-          const hourly = (daily?.hourly || []).slice(0, 4).map((entry: any) => {
+          const hourly = (daily?.hourly || []).slice(0, 4).map((entry) => {
             const hour = Math.floor(Number(entry.time || 0) / 100);
             return {
               time: formatHourLabel(hour),

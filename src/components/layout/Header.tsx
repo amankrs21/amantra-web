@@ -23,7 +23,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
-  const [avatarOk, setAvatarOk] = useState(true);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const userRef = useRef<HTMLDivElement>(null);
   const themeRef = useRef<HTMLDivElement>(null);
 
@@ -37,10 +37,6 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  useEffect(() => {
-    setAvatarOk(true);
-  }, [user?.id, user?.avatarUrl]);
 
   const themeIcon = resolved === 'dark' ? <Moon size={18} /> : <Sun size={18} />;
 
@@ -86,12 +82,12 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       <div ref={userRef} className="relative">
         <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center gap-2 btn btn-ghost px-2 py-1.5">
           <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))' }}>
-            {user?.avatarUrl && avatarOk ? (
+            {user?.avatarUrl && user.avatarUrl !== failedAvatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user?.name || 'User'}
                 className="w-full h-full object-cover"
-                onError={() => setAvatarOk(false)}
+                onError={() => setFailedAvatarUrl(user.avatarUrl ?? null)}
               />
             ) : (
               <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>

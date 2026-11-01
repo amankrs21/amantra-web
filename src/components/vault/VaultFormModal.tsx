@@ -14,6 +14,15 @@ interface Props {
   editItem: { _id: string; title: string; username: string; category: string } | null;
 }
 
+const validCategories = new Set<string>(vaultCategories.map((c) => c.value));
+
+const normalizeCategory = (value?: string) => {
+  const normalized = (value || '').trim().toLowerCase();
+  if (validCategories.has(normalized)) return normalized;
+  if (normalized === 'entertainment') return 'media';
+  return 'other';
+};
+
 export default function VaultFormModal({ open, onClose, onSaved, editItem }: Props) {
   const [title, setTitle] = useState('');
   const [username, setUsername] = useState('');
@@ -23,15 +32,6 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { requireKey } = useEncryptionKey();
-  const validCategories = new Set<string>(vaultCategories.map((c) => c.value));
-
-  const normalizeCategory = (value?: string) => {
-    const normalized = (value || '').trim().toLowerCase();
-    if (validCategories.has(normalized)) return normalized;
-    if (normalized === 'entertainment') return 'media';
-    return 'other';
-  };
-
   const decodeBase64 = (value: string) => {
     try {
       const binary = atob(value);
@@ -101,7 +101,7 @@ export default function VaultFormModal({ open, onClose, onSaved, editItem }: Pro
       }
       onSaved();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Failed to save'));
     } finally { setSaving(false); }
   };
